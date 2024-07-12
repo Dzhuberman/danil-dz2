@@ -1,0 +1,5 @@
+<meta>
+    <script src="factions_server.lua" type="server" />
+    <script src="client.lua" type="client" />
+    <script src="ids_server.lua" type="server" />
+</meta>
