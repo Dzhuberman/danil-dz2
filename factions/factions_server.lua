@@ -13,17 +13,9 @@ local factions = {
 	cityMayor,
 }
 
+local invitesCooldown = {}
+
 --===========================Utils===========================
-
-local function isFactionIdExists(factionId)
-	for i = 1, #factions do
-        if factionId == factions[i].id then
-			return true
-		end
-    end
-
-    return false
-end
 
 local function getFactionById(factionId)
 	for i = 1, #factions do
@@ -35,9 +27,9 @@ local function getFactionById(factionId)
     return nil
 end
 
-local function getFactionByPlayer(playerName)
+local function getFactionByPlayer(playerId)
 	for i = 1, #factions do
-		if factions[i].members[playerName] then
+		if factions[i].members[playerId] then
 			return factions[i]
 		end
 	end
@@ -47,30 +39,12 @@ end
 
 --========================Faction Management========================
 
-local function promoteToLeader(player, faction)
-	if not faction then return end
-
-	faction.members[getPlayerName(player)].role = roles.ADMIN
-	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, faction.members[getPlayerName(player)])
+local function promoteToLeader(player, playerId, faction)
+	faction.members[playerId].role = roles.ADMIN
+	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, faction.members[playerId])
 
 	outputChatBox(
-		getPlayerName(player).." Is Now Admin Of "..faction.name.." Faction",
-		player,
-		0, 255, 0
-	)
-end
-
-local function addMember(player, faction)
-	if not faction then return end
-
-	local playerId = GetPlayerId(player)
-	if not playerId then return end
-
-	faction.members[getPlayerName(player)] = { id = playerId, role = roles.MEMBER }
-	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, faction.members[getPlayerName(player)])
-
-	outputChatBox(
-		getPlayerName(player).." Is Part Of "..faction.name.." Faction",
+		faction.members[playerId].name.." стал лидером фракции "..faction.name,
 		player,
 		0, 255, 0
 	)
@@ -79,64 +53,82 @@ end
 local function setFactionLeader(player, command, playerIdArg, factionIdArg)
 	local playerId = tonumber(playerIdArg)
 	local factionId = tostring(factionIdArg)
-	local targetPlayer = GetPlayerById(playerId)
-	local faction = getFactionByPlayer(getPlayerName(targetPlayer))
+	local targetFaction = getFactionById(factionId)
+	local currentFaction = getFactionByPlayer(playerId)
 
-	if not IsIdExists(playerId) then
-		outputChatBox("Invalid Player ID", player, 255, 0, 0)
+	if not GetPlayerById(playerId) then
+		outputChatBox("Такого ID не существует", player, 255, 0, 0)
 		return
 	end
-	if not isFactionIdExists(factionId) then
-		outputChatBox("Invalid Faction ID", player, 255, 0, 0)
+	if not targetFaction then
+		outputChatBox("Такой фракции не существует", player, 255, 0, 0)
 		return
 	end
-	if not faction then
-		outputChatBox("Player Is Not In Any Faction", player, 255, 0, 0)
+	if not currentFaction then
+		outputChatBox("Игрок не является участником фракции", player, 255, 0, 0)
 		return
 	end
-	if faction ~= getFactionById(factionId) then
-		outputChatBox("Player Is In Different Faction", player, 255, 0, 0)
+	if targetFaction ~= currentFaction then
+		outputChatBox("Игрок в другой фракции", player, 255, 0, 0)
 		return
 	end
-	if faction.members[getPlayerName(targetPlayer)].role == roles.ADMIN then
-		outputChatBox("Player Is Already a Leader", player, 255, 0, 0)
+	if targetFaction.members[playerId].role == roles.ADMIN then
+		outputChatBox("Игрок уже является лидером данной фракции", player, 255, 0, 0)
 		return
 	end
 
-	promoteToLeader(targetPlayer, faction)
+	promoteToLeader(player, playerId, targetFaction)
+end
+
+local function addMember(player, playerId, faction)
+	faction.members[playerId] = { name = getPlayerName(player), role = roles.MEMBER }
+	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, faction.members[playerId])
+
+	outputChatBox(
+		getPlayerName(player).." вступил во фракцию  "..faction.name,
+		player,
+		0, 255, 0
+	)
+end
+
+local function deleteMember(player, playerId, faction)
+	outputChatBox(faction.members[playerId].name.." вышел из фракции  "..faction.name, player, 0, 255, 0)
+	faction.members[playerId] = nil
+
+	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, nil, nil)
 end
 
 local function setFaction(player, command, playerIdArg, factionIdArg)
 	local playerId = tonumber(playerIdArg)
 	local factionId = tostring(factionIdArg)
-	local currentFaction = getFactionByPlayer(getPlayerName(player))
+	local targetFaction = getFactionById(factionId)
+	local currentFaction = getFactionByPlayer(playerId)
 
-	if not IsIdExists(playerId) then
-		outputChatBox("Invalid Player ID", player, 255, 0, 0)
+	if not GetPlayerById(playerId) then
+		outputChatBox("Такого ID не существует", player, 255, 0, 0)
 		return
 	end
 	if factionIdArg == nil then
 		if currentFaction then
-			currentFaction.members[getPlayerName(player)] = nil
+			deleteMember(player, playerId, currentFaction)
 			return
 		end
 	end
-	if not isFactionIdExists(factionId) then
-		outputChatBox("Invalid Faction ID", player, 255, 0, 0)
+	if not targetFaction then
+		outputChatBox("Такой фракции не существует", player, 255, 0, 0)
 		return
 	end
-	if faction == getFactionById(factionId) then
-		outputChatBox("Player Already in This Faction", player, 255, 0, 0)
+	if targetFaction == currentFaction then
+		outputChatBox("Игрок уже является участником данной фракции", player, 255, 0, 0)
 		return
 	end
 
-	local faction = getFactionById(factionId)
-	local targetPlayer = GetPlayerById(playerId)
-	addMember(targetPlayer, faction)
+	addMember(player, playerId, targetFaction)
 end
 
 local function sendFactionMessage(player, command, ...)
-	local faction = getFactionByPlayer(getPlayerName(player))
+	local playerId = GetPlayerId(player)
+	local faction = getFactionByPlayer(playerId)
 	if not faction then
 		outputChatBox("Вы не состоите ни в одной фракции", player, 255, 0, 0)
 	end
@@ -144,8 +136,8 @@ local function sendFactionMessage(player, command, ...)
 	local fullMessage = table.concat({...}, " ")
 
 	for k, v in pairs(faction.members) do
-		local recipient = GetPlayerById(v.id)
-		outputChatBox(getPlayerName(player)..": "..fullMessage, recipient, 160, 43, 255)
+		local recipient = GetPlayerById(k)
+		outputChatBox(v.name..": "..fullMessage, recipient, 160, 43, 255)
 	end
 end
 
@@ -156,9 +148,10 @@ addCommandHandler("f", sendFactionMessage)
 --===========================Custom events===========================
 
 local function getFaction(player)
-	local faction = getFactionByPlayer(getPlayerName(player))
+	local playerId = GetPlayerId(player)
+	local faction = getFactionByPlayer(playerId)
 	if not faction then return end
-	local member = faction.members[getPlayerName(player)]
+	local member = faction.members[playerId]
 
 	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, member)
 end
@@ -166,36 +159,71 @@ end
 addEvent("onPlayerRequestFaction", true)
 addEventHandler("onPlayerRequestFaction", resourceRoot, getFaction)
 
-local function inviteMember(playerId, factionId, inviteFrom)
-	if not IsIdExists(playerId) then return end
+local function startInviteCooldown(time, playerId)
+	invitesCooldown[playerId] = true
+	setTimer(function ()
+		invitesCooldown[playerId] = nil
+	end, time, 1)
+end
+
+local function inviteMember(playerId, factionId, adminId)
+	if type(playerId) ~= "number" then return end
+	local player = GetPlayerById(playerId)
+	if not player then return end
+
 	local faction = getFactionById(factionId)
 	if not faction then return end
-	if type(inviteFrom) ~= "string" then return end
 
-	triggerClientEvent(GetPlayerById(playerId), "onInviteRecieve", resourceRoot, faction, inviteFrom)
+	if type(adminId) ~= "number" then return end
+	local admin = faction.members[adminId]
+	if not admin then return end
+	if admin.role ~= roles.ADMIN then return end
+
+	if getFactionByPlayer(playerId) then
+		outputChatBox("Данный игрок уже является членом фракции", GetPlayerById(adminId), 255, 0, 0)
+		return
+	end
+
+	if invitesCooldown[playerId] then
+		outputChatBox("Вы не можете приглашать более одного раза в минуту", GetPlayerById(adminId), 255, 0, 0)
+		return
+	end
+
+	outputChatBox("Приглашение во фракцию "..faction.name.." отправлено", GetPlayerById(adminId), 0, 255, 0)
+	startInviteCooldown(60000, playerId)
+	triggerClientEvent(player, "onInviteRecieve", resourceRoot, faction, admin.name)
 end
 
 addEvent("onAdminInviteMember", true)
 addEventHandler("onAdminInviteMember", resourceRoot, inviteMember)
 
-local function acceptInvite(player, factionId)
+local function acceptInvite(playerId, factionId)
+	if type(playerId) ~= "number" then return end
+	local player = GetPlayerById(playerId)
 	if not player then return end
+
 	local faction = getFactionById(factionId)
 	if not faction then return end
 
-	addMember(player, faction)
+	addMember(player, playerId, faction)
 end
 
 addEvent("onPlayerAcceptInvite", true)
 addEventHandler("onPlayerAcceptInvite", resourceRoot, acceptInvite)
 
-local function deleteMember(playerName, factionId)
+local function adminDeleteMember(playerId, factionId)
 	local faction = getFactionById(factionId)
 	if not faction then return end
-	if type(playerName) ~= "string" then return end
 
-	faction.members[playerName] = nil
+	if type(playerId) ~= "number" then return end
+	local player = GetPlayerById(playerId)
+	if not player then return end
+
+	local currentFaction = getFactionByPlayer(playerId)
+	if not currentFaction then return end
+
+	deleteMember(player, playerId, faction)
 end
 
 addEvent("onAdminDeleteMember", true)
-addEventHandler("onAdminDeleteMember", resourceRoot, deleteMember)
+addEventHandler("onAdminDeleteMember", resourceRoot, adminDeleteMember)

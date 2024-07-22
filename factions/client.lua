@@ -12,16 +12,14 @@ local roles = {
 local factionWindow = nil
 local isWindowOpened = false
 
-local canOpenInvite = true
-
 --===========================dxDraw Section===========================
 
 local function drawIdAbovePlayers()
-	for _, v in ipairs(player_ids) do
-		local x, y, z = getPedBonePosition(v.player, 8);
+	for k, v in ipairs(player_ids) do
+		local x, y, z = getPedBonePosition(v, 8);
 		local sX, sY = getScreenFromWorldPosition(x, y, z);
 		if sX then
-			dxDrawText("[ "..v.id.." ]", sX, sY - 160, sX, sY, tocolor(255, 255, 255, 255), 1, "pricedown", "center", "center")
+			dxDrawText("[   "..k.."   ]", sX, sY - 160, sX, sY, tocolor(255, 255, 255, 255), 1, "pricedown", "center", "center")
 		end
 	end
 end
@@ -71,7 +69,7 @@ local function drawFactionMenu()
 	if faction then
 		local i = 0
 		for k, v in pairs(faction.members) do
-			local memberLabel = guiCreateLabel(0, i * 0.1, 0.5, 0.1, "id: ["..v.id.."] name: "..k, true, scrollPaneMembers)
+			local memberLabel = guiCreateLabel(0, i * 0.1, 0.5, 0.1, "id: ["..k.."] name: "..v.name, true, scrollPaneMembers)
 			if member.role == roles.ADMIN then
 				local deleteMemberButton = guiCreateButton(0.7, i * 0.1, 0.2, 0.1, "Уволить", true, scrollPaneMembers)
 				addEventHandler("onClientGUIClick", deleteMemberButton, function ()
@@ -94,8 +92,7 @@ local function drawFactionMenu()
 			local playerId = tonumber(guiGetText(inviteEdit))
 			if not playerId then return end
 
-			outputChatBox("Приглашение в "..faction.name.." отправлено", 0, 255, 0)
-			triggerServerEvent("onAdminInviteMember", resourceRoot, playerId, faction.id, getPlayerName(localPlayer))
+			triggerServerEvent("onAdminInviteMember", resourceRoot, playerId, faction.id, player_id)
 		end, false)
 	else
 		guiSetEnabled(tabCityManagement, false)
@@ -142,28 +139,19 @@ end
 addEvent("onPlayerGetFaction", true)
 addEventHandler("onPlayerGetFaction", resourceRoot, setMember)
 
-local function startInviteCooldown(time)
-	setTimer(function()
-		canOpenInvite = true
-	end, time, 1)
-end
-
-local function openInvite(invitedFaction, inviteFrom)
-	if not canOpenInvite then return end
+local function openInvite(invitedFaction, inviteFromName)
 	if faction then return end
 
-	canOpenInvite = false
-
 	local inviteWindow = guiCreateWindow(0.375, 0.4, 0.25, 0.2, "Приглашение", true)
-	local inviteLabel = guiCreateLabel(0, 0.3, 1, 0.2, inviteFrom.." приглашает вас вступить в "..invitedFaction.name, true, inviteWindow)
-	guiLabelSetHorizontalAlign(inviteLabel,"center")
+	local inviteLabel = guiCreateLabel(0, 0.3, 1, 0.2, inviteFromName.." приглашает вас вступить в "..invitedFaction.name, true, inviteWindow)
+	guiLabelSetHorizontalAlign(inviteLabel, "center")
 	local acceptButton = guiCreateButton(0.2, 0.7, 0.2, 0.1, "Принять", true, inviteWindow)
 	local cancelButton = guiCreateButton(0.6, 0.7, 0.2, 0.1, "Отказаться", true, inviteWindow)
 
 	showCursor(true)
 
 	addEventHandler("onClientGUIClick", acceptButton, function ()
-		triggerServerEvent("onPlayerAcceptInvite", resourceRoot, localPlayer, invitedFaction.id)
+		triggerServerEvent("onPlayerAcceptInvite", resourceRoot, player_id, invitedFaction.id)
 
 		destroyElement(inviteWindow)
 		showCursor(false)
@@ -173,8 +161,6 @@ local function openInvite(invitedFaction, inviteFrom)
 		destroyElement(inviteWindow)
 		showCursor(false)
 	end, false)
-
-	startInviteCooldown(60000)
 end
 
 addEvent("onInviteRecieve", true)
