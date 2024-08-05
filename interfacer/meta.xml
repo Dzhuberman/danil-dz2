@@ -1,0 +1,5 @@
+<meta>
+    <script src="shared.lua" type="server" />
+
+    <export function="extend" type="server" />
+</meta>

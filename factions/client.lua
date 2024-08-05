@@ -49,6 +49,17 @@ end
 
 --===========================GUI Section===========================
 
+local function alert( message )
+    local alert_window = guiCreateWindow( 0.4, 0.45, 0.2, 0.1, "Предупреждение", true )
+    local message_label = guiCreateLabel( 0, 0.3, 1, 0.3, message, true, alert_window )
+    guiLabelSetHorizontalAlign( message_label, "center" )
+
+    local close_button = guiCreateButton( 0.2, 0.6, 0.6, 0.3, "Закрыть", true, alert_window )
+    addEventHandler( "onClientGUIClick", close_button, function ()
+        destroyElement( alert_window )
+    end, false )
+end
+
 local function drawFactionMenu()
 	destroyElement(factionWindow)
 	triggerServerEvent("onPlayerRequestFaction", resourceRoot, localPlayer)
@@ -60,8 +71,7 @@ local function drawFactionMenu()
 	local tabCityManagement = guiCreateTab("Управление городом", tabPanel)
 	local scrollPaneMembers = guiCreateScrollPane(0, 0.1, 1, 0.9, true, tabMembers)
 
-	guiCreateLabel(0.02, 0.04, 0.94, 0.92, "Coming Soon", true, tabCityManagement)
-
+	-- Members tab
 	for _, v in ipairs(getElementChildren(scrollPaneMembers)) do
 		destroyElement(v)
 	end
@@ -97,6 +107,83 @@ local function drawFactionMenu()
 	else
 		guiSetEnabled(tabCityManagement, false)
 	end
+
+	-- City Management tab
+	local city_name_label = guiCreateLabel( 0.02, 0, 0.2, 0.1, faction.name, true, tabCityManagement )
+	local city_name_edit = guiCreateEdit(0.4, 0, 0.3, 0.1, "", true, tabCityManagement)
+	local city_name_button = guiCreateButton(0.7, 0, 0.2, 0.1, "Изменить имя", true, tabCityManagement)
+	addEventHandler("onClientGUIClick", city_name_button, function ()
+		local new_city_name = guiGetText( city_name_edit )
+		triggerServerEvent( "onCityNameChange", resourceRoot, new_city_name, player_id, faction.id )
+
+		if faction.cooldowns.name then return end
+
+		destroyElement( city_name_label )
+		city_name_label = guiCreateLabel( 0.02, 0, 0.2, 0.1, new_city_name, true, tabCityManagement )
+	end, false)
+
+	guiCreateLabel( 0.02, 0.8, 0.2, 0.1, "Свободные очки: ", true, tabCityManagement )
+	local points_label = guiCreateLabel( 0.2, 0.8, 0.05, 0.1, tonumber( faction.points ), true, tabCityManagement )
+
+	local y_pos = {}
+
+	local i = 1
+	for key, tax in pairs( faction.taxes ) do
+		guiCreateLabel( 0.02, i * 0.1, 0.94, 0.92, tax.name, true, tabCityManagement )
+
+		local points_counter = guiCreateLabel( 0.5, i * 0.1, 0.05, 0.1, tostring( faction.taxes[key].tax ), true, tabCityManagement )
+		guiLabelSetHorizontalAlign( points_counter, "center" )
+		guiLabelSetVerticalAlign( points_counter, "center" )
+
+		local minus_button = guiCreateButton( 0.4, i * 0.1, 0.05, 0.1, "-", true, tabCityManagement )
+		y_pos[minus_button] = i * 0.1
+		addEventHandler( "onClientGUIClick", minus_button, function ()
+			if faction.taxes[key].tax <= 0 then return end
+
+			destroyElement( points_counter )
+			destroyElement( points_label )
+			faction.taxes[key].tax = faction.taxes[key].tax - 1
+			faction.points = faction.points + 1
+
+			points_counter = guiCreateLabel( 0.5, y_pos[minus_button], 0.05, 0.1, tostring( faction.taxes[key].tax ), true, tabCityManagement )
+			guiLabelSetHorizontalAlign( points_counter, "center" )
+			guiLabelSetVerticalAlign( points_counter, "center" )
+			points_label = guiCreateLabel( 0.2, 0.8, 0.05, 0.1, tonumber( faction.points ), true, tabCityManagement )
+		end, false )
+
+		local plus_button = guiCreateButton( 0.6, i * 0.1, 0.05, 0.1, "+", true, tabCityManagement )
+		y_pos[plus_button] = i * 0.1
+		addEventHandler( "onClientGUIClick", plus_button, function ()
+			if faction.points <= 0 then return end
+
+			destroyElement( points_counter )
+			destroyElement( points_label )
+			faction.taxes[key].tax = faction.taxes[key].tax + 1
+			faction.points = faction.points - 1
+
+			points_counter = guiCreateLabel( 0.5, y_pos[plus_button], 0.05, 0.1, tostring( faction.taxes[key].tax ), true, tabCityManagement )
+			guiLabelSetHorizontalAlign( points_counter, "center" )
+			guiLabelSetVerticalAlign( points_counter, "center" )
+			points_label = guiCreateLabel( 0.2, 0.8, 0.05, 0.1, tonumber( faction.points ), true, tabCityManagement )
+		end, false )
+
+		i = i + 1
+	end
+
+	local accept_button = guiCreateButton( 0.5, 0.8, 0.2, 0.1, "Применить", true, tabCityManagement )
+	addEventHandler( "onClientGUIClick", accept_button, function ()
+		if faction.points ~= 0 then
+			alert( "Вы не распределили очки" )
+			return
+		end
+
+		triggerServerEvent( "onAcceptTaxes", resourceRoot, player_id, faction.id, faction.taxes )
+	end, false )
+
+	local reset_button = guiCreateButton( 0.75, 0.8, 0.2, 0.1, "Сбросить", true, tabCityManagement )
+	addEventHandler( "onClientGUIClick", reset_button, function ()
+		triggerServerEvent( "onResetTaxes", resourceRoot, player_id, faction.id )
+	end, false )
 end
 
 local function showFactionMenu()
@@ -165,3 +252,10 @@ end
 
 addEvent("onInviteRecieve", true)
 addEventHandler("onInviteRecieve", resourceRoot, openInvite)
+
+local function cooldown_alert( message )
+	alert( message )
+end
+
+addEvent( "onCooldownAlert", true )
+addEventHandler( "onCooldownAlert", resourceRoot, cooldown_alert )
