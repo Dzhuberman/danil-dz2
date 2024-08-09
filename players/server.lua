@@ -1,10 +1,5 @@
 local DB
 
-local function isValidEmail(email)
-    local pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+%.[a-zA-Z]+$"
-    return email:match(pattern) ~= nil
-end
-
 local function connect()
 	loadstring( exports.interfacer:extend( "SDB" ) )(  )
 	DB = Connection.new( "Test", "127.0.0.1", "root", "13371337" )
@@ -24,54 +19,76 @@ end
 addEvent( "onPlayerSignIn", true )
 addEventHandler( "onPlayerSignIn", resourceRoot, add_player )
 
-local function add_player_db( player, email, password, serial )
-	if getElementType( player ) ~= "player" then return end
-	if not isValidEmail( email ) then return end
-	if type( password ) ~= "string" then return end
-	if type( serial ) ~= "string" then return end
+local function get_reg_serials( serial )
+	local data = DB:query( "SELECT * FROM players WHERE serial = ?", serial )
+	return #data
+end
 
-	DB:query( "INSERT INTO players (email, password, serial, status) VALUES (?, ?, ?, ?)", email, password, serial, "member" )
-	add_player( player )
+local function add_player_db( email, password, serial )
+	local is_auth = true
+
+	if not IsValidEmail( email ) then
+		is_auth = false
+	end
+	if not IsValidPassword( password ) then
+		is_auth = false
+	end
+	if not IsValidSerial( client, serial ) then
+		is_auth = false
+	end
+
+	local registered_serials = get_reg_serials( serial )
+	if registered_serials >= 3 then
+		triggerClientEvent( client, "onAlertReceive", resourceRoot, "Слишком много аккаунтов" )
+		is_auth = false
+	end
+
+	if not is_auth then
+		triggerClientEvent( client, "onAuthResponse", resourceRoot, is_auth )
+		return
+	end
+
+	DB:query( "INSERT INTO players (email, password, serial, status) VALUES (?, ?, ?, ?)", email, password, serial, 0 )
+	triggerClientEvent( client, "onAuthResponse", resourceRoot, is_auth )
+	add_player( client )
 end
 
 addEvent( "onPlayerSignUp", true )
 addEventHandler( "onPlayerSignUp", resourceRoot, add_player_db )
 
-local function get_serials( player )
-	if getElementType( player ) ~= "player" then return end
+local function check_validation( email, password )
+	local is_validated = true
 
-	local serial = getPlayerSerial( player )
-
-	local data = DB:query( "SELECT * FROM players WHERE serial = ?", serial )
-
-	triggerClientEvent( player, "onPlayerFetchSerials", resourceRoot, #data )
-end
-
-addEvent( "onPlayerRequestSerials", true )
-addEventHandler( "onPlayerRequestSerials", resourceRoot, get_serials )
-
-local function check_validation( player, email, password )
-	if getElementType( player ) ~= "player" then return end
-	if not isValidEmail( email ) then return end
-	if type( password ) ~= "string" then return end
-
-	local is_validated = false
+	if not IsValidEmail( email ) then
+		is_validated = false
+	end
+	if not IsValidPassword( password ) then
+		is_validated = false
+	end
 
 	local data = DB:query( "SELECT * FROM players WHERE email = ? AND password = ?", email, password )
+
+	if not data or #data <= 0 then
+		is_validated = false
+	end
+
+	if not is_validated then
+		triggerClientEvent( client, "onAlertReceive", resourceRoot, "Неверные почта/пароль" )
+		triggerClientEvent( client, "onAuthResponse", resourceRoot, is_validated )
+		return
+	end
+
 	local status
-
-	if data and #data > 0 then
-		is_validated = true
-
-		for _, v in pairs( data ) do
-			status = v.status
-		end
+	for _, v in pairs( data ) do
+		status = v.status
 	end
 
 	if status then
-		setElementData( player, "player_status", status, false )
+		setElementData( client, "player_status", status, false )
 	end
-	triggerClientEvent( player, "onPlayerFetchValidation", resourceRoot, is_validated )
+
+	triggerClientEvent( client, "onAuthResponse", resourceRoot, is_validated )
+	add_player( client )
 end
 
 addEvent( "onPlayerRequestValidation", true )

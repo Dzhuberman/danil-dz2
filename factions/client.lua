@@ -62,7 +62,7 @@ end
 
 local function drawFactionMenu()
 	destroyElement(factionWindow)
-	triggerServerEvent("onPlayerRequestFaction", resourceRoot, localPlayer)
+	triggerServerEvent("onPlayerRequestFaction", resourceRoot)
 	if not isWindowOpened then return end
 
 	factionWindow = guiCreateWindow(0.25, 0.2, 0.5, 0.4, "Фракции", true)
@@ -193,10 +193,10 @@ local function showFactionMenu()
 end
 
 local function handleFactionStart()
-	triggerServerEvent("onPlayerRequestId", resourceRoot, localPlayer)
+	triggerServerEvent("onPlayerRequestId", resourceRoot)
 
 	bindKey("p", "down", showFactionMenu)
-	triggerServerEvent("onPlayerRequestFaction", resourceRoot, localPlayer)
+	triggerServerEvent("onPlayerRequestFaction", resourceRoot)
 end
 
 addEventHandler("onClientResourceStart", resourceRoot, handleFactionStart)

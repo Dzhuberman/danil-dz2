@@ -71,7 +71,7 @@ local function setFactionLeader(player, command, playerIdArg, factionIdArg)
 
 	local player_status = getElementData( player, "player_status" )
 
-	if player_status ~= "admin" then
+	if player_status ~= 1 then
 		outputChatBox( "Вы не имеете доступа к данной команде", player, 255, 0, 0 )
 		return
 	end
@@ -126,7 +126,7 @@ local function setFaction(player, command, playerIdArg, factionIdArg)
 
 	local player_status = getElementData( player, "player_status" )
 
-	if player_status ~= "admin" then
+	if player_status ~= 1 then
 		outputChatBox( "Вы не имеете доступа к данной команде", player, 255, 0, 0 )
 		return
 	end
@@ -199,22 +199,22 @@ addEventHandler( "onResourceStart", resourceRoot, start_resource )
 
 --===========================Custom events===========================
 
-local function getId( player )
-	local player_obj = Player.new( player )
-	players[ player ] = player_obj
-	triggerClientEvent( player, "onPlayerResponseId", resourceRoot, player_obj:GetID(  ) )
+local function getId(  )
+	local player_obj = Player.new( client )
+	players[ client ] = player_obj
+	triggerClientEvent( client, "onPlayerResponseId", resourceRoot, player_obj:GetID(  ) )
 	triggerClientEvent("onPlayerGetIds", resourceRoot, ID_TABLE)
 end
 
 addEvent("onPlayerRequestId", true)
 addEventHandler("onPlayerRequestId", resourceRoot, getId)
 
-local function getFaction( player )
-	local faction = getFactionByPlayer( players[ player ]:GetID(  ) )
+local function getFaction(  )
+	local faction = getFactionByPlayer( players[ client ]:GetID(  ) )
 	if not faction then return end
-	local member = faction.members[ players[ player ]:GetID(  ) ]
+	local member = faction.members[ players[ client ]:GetID(  ) ]
 
-	triggerClientEvent(player, "onPlayerGetFaction", resourceRoot, faction, member)
+	triggerClientEvent(client, "onPlayerGetFaction", resourceRoot, faction, member)
 end
 
 addEvent("onPlayerRequestFaction", true)

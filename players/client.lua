@@ -1,11 +1,7 @@
 local auth_window
 
-local registered_serials = 0
-
-local function isValidEmail(email)
-    local pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+%.[a-zA-Z]+$"
-    return email:match(pattern) ~= nil
-end
+local submit_button
+local submit_button_sign_in
 
 local function alert( message )
     local alert_window = guiCreateWindow( 0.4, 0.45, 0.2, 0.1, "Предупреждение", true )
@@ -33,36 +29,34 @@ local function draw_auth_window()
     guiCreateLabel( 0.1, 0.45, 0.94, 0.92, "Повторите пароль", true, tab_sign_up )
     local password_rep_edit = guiCreateEdit( 0.1, 0.5, 0.8, 0.1, "", true, tab_sign_up )
 
-    local submit_button = guiCreateButton( 0.35, 0.7, 0.3, 0.1, "Зарегистрироваться", true, tab_sign_up )
+    submit_button = guiCreateButton( 0.35, 0.7, 0.3, 0.1, "Зарегистрироваться", true, tab_sign_up )
     addEventHandler( "onClientGUIClick", submit_button, function ()
+        guiSetEnabled( submit_button, false )
+
         local email = guiGetText( email_edit )
         local password = guiGetText( password_edit )
         local password_rep = guiGetText( password_rep_edit )
         local serial = getPlayerSerial( localPlayer )
 
-        if registered_serials >= 3 then
-            alert( "Вы создали слишком много учетных записей" )
-            return
-        end
-
-        if not isValidEmail( email ) then
+        if not IsValidEmail( email ) then
             alert( "Некорректный формат почты" )
+            guiSetEnabled( submit_button, true )
             return
         end
 
-        if #password < 8 then
-            alert( "Пароль меньше 8-ми символов" )
+        if not IsValidPassword( password ) then
+            alert( "Некорректный формат пароля" )
+            guiSetEnabled( submit_button, true )
             return
         end
 
         if password ~= password_rep then
             alert( "Пароли не совпадают" )
+            guiSetEnabled( submit_button, true )
             return
         end
 
-        destroyElement( auth_window )
-        showCursor( false )
-        triggerServerEvent( "onPlayerSignUp", resourceRoot, localPlayer, email, password, serial )
+        triggerServerEvent( "onPlayerSignUp", resourceRoot, email, password, serial )
     end, false )
 
     -- Sign in gui
@@ -71,42 +65,51 @@ local function draw_auth_window()
     guiCreateLabel( 0.1, 0.25, 0.94, 0.92, "Пароль", true, tab_sign_in )
     local password_edit_sign_in = guiCreateEdit( 0.1, 0.3, 0.8, 0.1, "", true, tab_sign_in )
 
-    local submit_button_sign_in = guiCreateButton( 0.35, 0.7, 0.3, 0.1, "Войти", true, tab_sign_in )
+    submit_button_sign_in = guiCreateButton( 0.35, 0.7, 0.3, 0.1, "Войти", true, tab_sign_in )
     addEventHandler( "onClientGUIClick", submit_button_sign_in, function ()
+        guiSetEnabled( submit_button_sign_in, false )
+
         local email = guiGetText(email_edit_sign_in)
         local password = guiGetText(password_edit_sign_in)
 
-        triggerServerEvent( "onPlayerRequestValidation", resourceRoot, localPlayer, email, password )
+        if not IsValidEmail( email ) then
+            alert( "Некорректная формат почты" )
+            guiSetEnabled( submit_button_sign_in, true )
+            return
+        end
+
+        if not IsValidPassword( password ) then
+            alert( "Некорректный формат пароля" )
+            guiSetEnabled( submit_button_sign_in, true )
+            return
+        end
+
+        triggerServerEvent( "onPlayerRequestValidation", resourceRoot, email, password )
     end, false )
 end
 
-local function fetch_serial_data()
-    triggerServerEvent( "onPlayerRequestSerials", resourceRoot, localPlayer )
-end
-
 local function load_start_resource()
-    fetch_serial_data()
     draw_auth_window()
 end
 
 addEventHandler( "onClientResourceStart", resourceRoot, load_start_resource )
 
-local function get_serials( serials )
-    registered_serials = serials
-end
-
-addEvent( "onPlayerFetchSerials", true )
-addEventHandler( "onPlayerFetchSerials", resourceRoot, get_serials )
-
-local function sign_in( result )
-    if result then
+local function close_auth_window( is_auth )
+    if is_auth then
         destroyElement( auth_window )
         showCursor( false )
-        triggerServerEvent( "onPlayerSignIn", resourceRoot, localPlayer )
-    else
-        alert( "Неверные почта/пароль" )
     end
+
+    guiSetEnabled( submit_button, true )
+    guiSetEnabled( submit_button_sign_in, true )
 end
 
-addEvent( "onPlayerFetchValidation", true )
-addEventHandler( "onPlayerFetchValidation", resourceRoot, sign_in )
+addEvent( "onAuthResponse", true )
+addEventHandler( "onAuthResponse", resourceRoot, close_auth_window )
+
+local function alert_event( message )
+    alert( message )
+end
+
+addEvent( "onAlertReceive", true )
+addEventHandler( "onAlertReceive", resourceRoot, alert_event )
