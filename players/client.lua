@@ -98,6 +98,7 @@ local function close_auth_window( is_auth )
     if is_auth then
         destroyElement( auth_window )
         showCursor( false )
+        return
     end
 
     guiSetEnabled( submit_button, true )
